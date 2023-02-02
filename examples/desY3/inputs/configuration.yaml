@@ -1,0 +1,18 @@
+cosmology:
+  h: 0.69
+  Omegac: 0.26
+  Omegab: 0.049
+  As: 2.19e-9
+  ns: 0.97
+
+analysis:
+  lmin: 1
+  lmax: 2000
+
+surveys:
+  Maglim:
+    Nz: 6 #number of lens samples
+    redshift_windows_txt_root: 'nz' #root of the file txt name, e.g. for nz: nz1.txt, nz2.txt, etc...
+
+settings:
+  l_limber: [100] #at which ell do we switch to Limber approximation? It is a list so that you can explore.
