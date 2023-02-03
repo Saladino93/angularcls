@@ -4,7 +4,7 @@ from scipy import interpolate as sinterp
 
 import numpy as np
 
-import cosmoconstants
+from . import cosmoconstants
 
 
 def interpolate(zs: np.ndarray, window: np.ndarray, interp1d: bool):

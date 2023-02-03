@@ -1,16 +1,17 @@
-import limberprojecting
-
 import numpy as np
 
 import scipy.integrate as sintegrate
 
 import scipy.interpolate as sinterp
 
+import sys
+sys.path.append('/Users/omard/Documents/projects/FFTLog-and-beyond/python/.')
 import fftlog
 
-import cosmoconstants
+from . import cosmoconstants, limberprojecting, projector
 
-from typing import Callable, Union
+from typing import Callable, Union, List, Set
+
 
 
 class FFTlogProjector(limberprojecting.LimberProjector):
@@ -49,9 +50,7 @@ class FFTlogProjector(limberprojecting.LimberProjector):
         growth : function
             Function of redshift returning the growth function.
         """
-
         quickinterp = lambda function: sinterp.interp1d(chis, function(zs), fill_value = 0., bounds_error = False)
-
         return list(map(quickinterp, [hubble, W, growth, bias]))
 
     def get_log_object_from_inputs(self, chilog, bofchi, Hofchi, nz0ofchi, growthofchi):
@@ -61,7 +60,8 @@ class FFTlogProjector(limberprojecting.LimberProjector):
     def get_log_object_from_inputs_from_z_functions(self, chilog, zs, chis, hubble, W, growth, bias):
         return self.get_log_object_from_inputs(chilog, *self.inputs_from_z_functions(zs, chis, hubble, W, growth, bias))
 
-    def integrate(self, ls: np.ndarray, zs: np.ndarray, chis: np.ndarray, hubble: Callable, growth: Callable, bias_A: Callable, bias_B: Callable, window_A: Callable, window_B: Callable, linear_power_interpolator: Callable, diff_power_interpolator: Callable, chi_min: float, chi_max: float, num: int = 1000, equal: bool = False):
+    def integrate(self, ls: np.ndarray, zs: np.ndarray, chis: np.ndarray, hubble: Callable, growth: Callable, bias_A: Callable, bias_B: Callable, window_A: Callable, window_B: Callable, linear_power_interpolator: Callable, non_linear_power_interpolator: Callable, 
+                  chi_min: float, chi_max: float, num: int = 1000, ls_limber: int = 100, miniter: int = 1500):
         """
         Parameters
         ----------
@@ -84,76 +84,55 @@ class FFTlogProjector(limberprojecting.LimberProjector):
         window_B : Callable
             Function of redshift returning the window function of the second field.
         linear_power_interpolator : Callable
-            Function of k and z returning the linear power spectrum at z = 0.
-        diff_power_interpolator : Callable
-            Function of k and z returning the difference between linear and non-linear power spectrum.
+            Function of k and z returning the linear power spectrum.
+        non_linear_power_interpolator : Callable
+            Function of k and z returning the non-linear power spectrum.
         chi_min : float
             Minimum comoving distance for log-spaced array.
         chi_max : float
             Maximum comoving distance for log-spaced array.
         num : int, optional
             Number of points in log-spaced array. The default is 1000.
-        equal : bool, optional
-            If True A = B and we do fftlog only once. The default is False.
-        
+        ls_limber : int, optional
+            Minimum multipole value for Limber approximation. The default is 200.
+        miniter : int, optional
+            Minimum number of iterations for the quadratue integration. The default is 1500.
+
         Returns
         -------
         result : array_like
             Array of projected power spectra.
         """
 
+        linear_power_interpolator_redshift_zero = lambda k: linear_power_interpolator(0, k)
+        diff_power_interpolator = lambda z, k, grid: non_linear_power_interpolator(z, k, grid = grid) - linear_power_interpolator(z, k, grid = grid)
+
+        ells_non_limber = ls[ls < ls_limber]
+        ells_limber = ls[ls >= ls_limber]
+
         chilog = np.logspace(np.log10(chi_min),np.log10(chi_max), num = num, endpoint = True)
 
         fftA = self.get_log_object_from_inputs_from_z_functions(chilog, zs, chis, hubble, window_A, growth, bias_A)
-        fftB = self.get_log_object_from_inputs_from_z_functions(chilog, zs, chis, hubble, window_B, growth, bias_B) if not equal else fftA
+        fftB = self.get_log_object_from_inputs_from_z_functions(chilog, zs, chis, hubble, window_B, growth, bias_B)
 
         def get_element(ell):
             kA, FAk = fftA.fftlog(ell)
-            kB, FBk = fftB.fftlog(ell) if not equal else (kA, FAk)
+            kB, FBk = fftB.fftlog(ell)
             fA, fB = sinterp.interp1d(kA, FAk, fill_value = 0., bounds_error = False), sinterp.interp1d(kB, FBk, fill_value = 0., bounds_error = False)
-            return self._integrate_fftlog(kA, fA, fB, linear_power_interpolator)
+            return self._integrate_fftlog(kA, fA, fB, linear_power_interpolator_redshift_zero, miniter)
 
-        result = np.array(list(map(get_element, ls)))
+        #for the first part use fftlog + limber
+        result = np.array(list(map(get_element, ells_non_limber)))+super().integrate(ells_non_limber, hubble(zs), chis, window_A(zs), window_B(zs), diff_power_interpolator)
+
+        #now for the rest of the modes, just use the Limber approximation
+        result = np.append(result, super().integrate(ells_limber, hubble(zs), chis, window_A(zs), window_B(zs), non_linear_power_interpolator))
+
+
 
         return result
 
-
-
-    def obtain_spectra(self, Hubble: Union[Callable, np.ndarray], chi: Union[Callable, np.ndarray],
-                       excluded_windows: List[str] = [], excluded_windows_combinations: List[Set[str]] = []) -> projector.Results:
-        '''
-        Note the 
-        '''
-
-        Hzs = Hubble(self.zs)
-        chis = chi(self.zs)
-
-        #Select windows needed for the calculation
-        selected_windows = [window for window in self.windows if window not in excluded_windows]
-        allcombs = list(itertools.combinations_with_replacement(selected_windows, 2))
-        allcombs = [combination for combination in allcombs if set(combination) not in excluded_windows_combinations]
-
-        #Set up the result
-        result = {}
-        #Make calculation
-        for couple in allcombs:
-            A, B = couple
-            type_A, window_A = getattr(self, A)
-            if B != A:
-                type_B, window_B = getattr(self, B)
-                type_AB = type_A + type_B if type_A != type_B else type_A
-                spectrum = self.spectrum(type_AB)
-            else:
-                spectrum = self.spectrum(type_A)
-                window_B = window_A
-
-            ls = self.ls
-            result[couple] = self.integrate(ls, Hzs, chis, window_A, window_B, spectrum)
-
-        results = projector.Results(ls, result)
-        return results
     
-    def _integrate_fftlog(self, k, fftlog1, fftlog2, Plin):
+    def _integrate_fftlog(self, k, fftlog1, fftlog2, Plin, miniter = 1500):
         function = lambda k: fftlog1(k)*fftlog2(k)*Plin(k)*k**2
         a, b = k.min(), k.max()
-        return sintegrate.quadrature(function, a, b, rtol = 1e-25, miniter = 200)[0]*2/np.pi
+        return sintegrate.quadrature(function, a, b, rtol = 1e-25, miniter = miniter)[0]*2/np.pi

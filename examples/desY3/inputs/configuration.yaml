@@ -6,13 +6,14 @@ cosmology:
   ns: 0.97
 
 analysis:
-  lmin: 1
+  lmin: 2
   lmax: 2000
 
 surveys:
   Maglim:
     Nz: 6 #number of lens samples
     redshift_windows_txt_root: 'nz' #root of the file txt name, e.g. for nz: nz1.txt, nz2.txt, etc...
+    info_txt_file: 'info' #each line is zbins, number of galaxies, bias
 
 settings:
   l_limber: [100] #at which ell do we switch to Limber approximation? It is a list so that you can explore.

@@ -4,9 +4,7 @@ from typing import Callable, List, Tuple, Set, Union
 
 import itertools
 
-import cosmoconstants
-
-import projector
+from . import cosmoconstants, projector
 
 
 
@@ -89,6 +87,10 @@ class LimberProjector(projector.Projector):
     def _integrate(l: np.ndarray, interpolator: Callable, zs: np.ndarray, chis: np.ndarray, dchis: np.ndarray, window_product: np.ndarray, common_prefactor: np.ndarray, kmax: float):
         '''
         For now assumes scipy interpolator, might change in the future
+
+        Based on CAMB demo code and orphics code.
+
+        Improve sampling, based on redshift distribution.
         '''
 
         zmin = 0.
@@ -106,5 +108,6 @@ class LimberProjector(projector.Projector):
         estCl = np.dot(dchis[zs >= zmin], common*(window_product)[zs >= zmin])
         
         return estCl
+
 
 
