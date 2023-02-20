@@ -12,6 +12,10 @@ def interpolate(zs: np.ndarray, window: np.ndarray, interp1d: bool):
         window = sinterp.interp1d(zs, window)
     return window
 
+def cmblensingwindow_ofchi(chis: np.ndarray, aofchis: np.ndarray, H0: float, Omegam: float, interp1d: bool = True, chistar:float = cosmoconstants.CHISTAR, cSpeedKmPerSec: float = cosmoconstants.CSPEEDKMPERSEC) -> Union[np.ndarray, Callable]:
+    window = 1.5*(Omegam)*H0**2*chis*((chistar - chis)/chistar)/cSpeedKmPerSec**2/aofchis
+    return interpolate(chis, window, interp1d)
+
 def cmblensingwindow(zs: np.ndarray, chis: np.ndarray, Hzs: np.ndarray, H0: float, Omegam: float, interp1d: bool = True, chistar:float = cosmoconstants.CHISTAR, cSpeedKmPerSec: float = cosmoconstants.CSPEEDKMPERSEC) -> Union[np.ndarray, Callable]:
     window = 1.5*(Omegam)*H0**2*(1.+zs)*chis*((chistar - chis)/chistar)/Hzs/cSpeedKmPerSec
     return interpolate(zs, window, interp1d)
