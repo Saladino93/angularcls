@@ -6,7 +6,7 @@ import abc
 
 class Projector(object):
 
-    def __init__(self, zs: np.ndarray, spectra: List[Tuple[str, Callable]]):
+    def __init__(self, zs: np.ndarray, spectra: List[Tuple[str, Callable]], gaussquadweights: np.ndarray):
         '''
         Parameters
         ----------
@@ -19,12 +19,21 @@ class Projector(object):
         >> spectra = [('m', P_mm_interpolator), ('g', P_gg_interpolator), ('mg', P_mg_interpolator)]
         '''
 
+        #zs, ws = self.gaussxw(a = zmin, b = zmax, N = ngaussquad)
         self.zs = zs
+        self.ws = gaussquadweights
 
         self._window_list = []
         #TO DO, CHECK COMBINATIONS OF SPECTRA ARE PRESENT TOO
         self._spectra = {element[0]: element[1] for element in spectra}
         self.spectra_keys = [element[0] for element in spectra]
+
+
+    @staticmethod
+    def gaussxw(a, b, N):
+        #get points and weights for Gaussian quadrature using numpy legendre module
+        x, w = np.polynomial.legendre.leggauss(N)
+        return 0.5*(b-a)*x + 0.5*(b+a), 0.5*(b-a)*w
 
     def spectrum(self, key: str) -> Callable:
         try:
@@ -48,7 +57,7 @@ class Projector(object):
         >> window_properties = ('m', kappa_window_function)
         '''
         _window_prop = window_properties[1]
-        window_values = _window_prop(self.zs) if type(_window_prop) is Callable else _window_prop
+        window_values = _window_prop(self.zs) if type(_window_prop) is not np.ndarray else _window_prop
         window_properties = (window_properties[0], window_values)
         setattr(self, window_name, window_properties)
         if window_name not in self.windows:

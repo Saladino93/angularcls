@@ -11,8 +11,8 @@ from . import cosmoconstants, projector
 class LimberProjector(projector.Projector):
 
 
-    def __init__(self, zs: np.ndarray, spectra: List[Tuple[str, Callable]], ls: np.ndarray, kmax: float, cSpeedKmPerSec: float = cosmoconstants.CSPEEDKMPERSEC):
-        super().__init__(zs = zs, spectra = spectra)
+    def __init__(self, zs: np.ndarray, spectra: List[Tuple[str, Callable]], ls: np.ndarray, kmax: float, cSpeedKmPerSec: float = cosmoconstants.CSPEEDKMPERSEC, **kwargs):
+        super().__init__(zs = zs, spectra = spectra, **kwargs)
         self.ls = ls
         self.kmax = kmax
         self.cSpeedKmPerSec = cSpeedKmPerSec
@@ -29,14 +29,17 @@ class LimberProjector(projector.Projector):
 
         #Select windows needed for the calculation
         selected_windows = [window for window in self.windows if window not in excluded_windows]
+        Nw = len(selected_windows)
         allcombs = list(itertools.combinations_with_replacement(selected_windows, 2))
         allcombs = [combination for combination in allcombs if set(combination) not in excluded_windows_combinations]
 
         #Set up the result
         result = {}
+        window_products = np.zeros((len(self.zs), Nw, Nw))
         #Make calculation
         for couple in allcombs:
             A, B = couple
+            indA, indB = selected_windows.index(A), selected_windows.index(B)
             type_A, window_A = getattr(self, A)
             if B != A:
                 type_B, window_B = getattr(self, B)
@@ -47,12 +50,22 @@ class LimberProjector(projector.Projector):
                 window_B = window_A
 
             ls = self.ls
-            result[couple] = self.integrate(ls, Hzs, chis, window_A, window_B, spectrum)
+            window_product = window_A*window_B
+            window_products[:, indA, indB] = window_product
+
+        
+        resultmatrix = self.integrate(ls, self.zs, self.ws, Hzs, chis, window_products, spectrum)
+
+        for couple in allcombs:
+            A, B = couple
+            indA, indB = selected_windows.index(A), selected_windows.index(B)
+            result[couple] = resultmatrix[:, indA, indB]
 
         results = projector.Results(ls, result)
+
         return results
 
-    def integrate(self, ls, Hzs, chis, window_A, window_B, power_interpolator):
+    def integrate(self, ls, zs, ws, Hzs, chis, window_product, power_interpolator):
         '''
         Parameters
         ----------
@@ -70,21 +83,12 @@ class LimberProjector(projector.Projector):
         #Common factor to the windows in the Limber integrand
         
         common_prefactor = Hzs**2./chis/chis/self.cSpeedKmPerSec**2.
-        window_product = window_A*window_B
 
-        #CHECK THIS STEP, ESPECIALLY FOR LENSING
-        dchis = (chis[2:]-chis[:-2])/2
-        chis = chis[1:-1]
-        window_product = window_product[1:-1]
-        Hzs = Hzs[1:-1]##
-        zs = self.zs[1:-1]
-        common_prefactor = common_prefactor[1:-1]
-
-        cl = np.array([self._integrate(l = l, interpolator = power_interpolator, zs = zs, chis = chis, dchis = dchis, window_product = window_product, common_prefactor = common_prefactor, kmax = self.kmax) for l in ls])
+        cl = np.array([self._integrate(l = l, interpolator = power_interpolator, zs = zs, ws = ws, chis = chis, window_product = window_product, common_prefactor = common_prefactor, kmax = self.kmax) for l in ls])
         return cl
 
     @staticmethod
-    def _integrate(l: np.ndarray, interpolator: Callable, zs: np.ndarray, chis: np.ndarray, dchis: np.ndarray, window_product: np.ndarray, common_prefactor: np.ndarray, kmax: float):
+    def _integrate(l: np.ndarray, interpolator: Callable, zs: np.ndarray, ws: np.ndarray, chis: np.ndarray, window_product: np.ndarray, common_prefactor: np.ndarray, kmax: float):
         '''
         For now assumes scipy interpolator, might change in the future
 
@@ -105,7 +109,7 @@ class LimberProjector(projector.Projector):
         common = ((_window_for_calculations*power)*common_prefactor)[zs >= zmin]   
 
         #integration routine here     
-        estCl = np.dot(dchis[zs >= zmin], common*(window_product)[zs >= zmin])
+        estCl = np.einsum("a, abc -> bc", ws[zs >= zmin]*common, (window_product)[zs >= zmin])
         
         return estCl
 

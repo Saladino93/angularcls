@@ -24,3 +24,24 @@ def cmblensingwindow(zs: np.ndarray, chis: np.ndarray, Hzs: np.ndarray, H0: floa
 def gaussianwindow(zs: np.ndarray, mean: float, sigma: float, interp1d: bool = True):
     window = np.exp(-(zs - mean)**2 / 2 / sigma**2) / np.sqrt(2*np.pi)/sigma
     return interpolate(zs, window, interp1d)
+
+
+def magnificationbiaswindow(s: float, wg: Callable, Hzs: np.ndarray, H0: float, Omegam0: float, zs: np.ndarray, chis: np.ndarray, cSpeedKmPerSec: float = cosmoconstants.CSPEEDKMPERSEC):
+    magwindow = lensingwindow(wg, zs, chis)
+    bias = (5*s-2)
+    factor = 3/2/cSpeedKmPerSec*(Omegam0)*H0**2*(1.+zs)/Hzs
+    return bias*factor*magwindow
+
+def lensingwindow(wg: Callable, zs: np.ndarray, chis: np.ndarray): 
+    '''
+    Assumes last of zs is around zstar.
+    '''
+    chiofz = sinterp.interp1d(zs, chis)
+    def obtain_single_element(i, z):
+        integrand = lambda zprime: (chiofz(zprime)-chiofz(z))/chiofz(zprime)*wg(zprime)
+        z_ = zs[i:]
+        result = np.trapz(integrand(z_), z_)
+        return np.nan_to_num(result)*chiofz(z)
+
+    return [obtain_single_element(i, z) for i, z in enumerate(zs)]
+
