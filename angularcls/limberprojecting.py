@@ -65,7 +65,7 @@ class LimberProjector(projector.Projector):
 
         return results
 
-    def integrate(self, ls, zs, ws, Hzs, chis, window_product, power_interpolator):
+    def integrate(self, ls, zs, ws, Hzs, chis, window_product, power_interpolator, chiint: bool = False):
         '''
         Parameters
         ----------
@@ -82,13 +82,17 @@ class LimberProjector(projector.Projector):
         
         #Common factor to the windows in the Limber integrand
         
-        common_prefactor = Hzs**2./chis/chis/self.cSpeedKmPerSec**2.
+        if chiint:
+            common_prefactor = Hzs**2./chis/chis/self.cSpeedKmPerSec**2.
+        else:
+            #zint
+            common_prefactor = Hzs*1/self.cSpeedKmPerSec*1./chis/chis
 
         cl = np.array([self._integrate(l = l, interpolator = power_interpolator, zs = zs, ws = ws, chis = chis, window_product = window_product, common_prefactor = common_prefactor, kmax = self.kmax) for l in ls])
         return cl
 
     @staticmethod
-    def _integrate(l: np.ndarray, interpolator: Callable, zs: np.ndarray, ws: np.ndarray, chis: np.ndarray, window_product: np.ndarray, common_prefactor: np.ndarray, kmax: float):
+    def _integrate(l: np.ndarray, interpolator: Callable, zs: np.ndarray, ws: np.ndarray, chis: np.ndarray, window_product: np.ndarray, common_prefactor: np.ndarray, kmax: float, kmin: float = 1e-4):
         '''
         For now assumes scipy interpolator, might change in the future
 
@@ -101,7 +105,7 @@ class LimberProjector(projector.Projector):
 
         _window_for_calculations = np.ones(chis.shape) #this is just used to set to zero k values out of range of interpolation
         k = (l+0.5)/chis
-        _window_for_calculations[k < 1e-4]=0
+        _window_for_calculations[k < kmin]=0
         _window_for_calculations[k >= kmax]=0
 
         power = interpolator(zs, k, grid = False)
