@@ -105,10 +105,12 @@ class LimberProjector(projector.Projector):
 
         _window_for_calculations = np.ones(chis.shape) #this is just used to set to zero k values out of range of interpolation
         k = (l+0.5)/chis
-        _window_for_calculations[k < kmin]=0
-        _window_for_calculations[k >= kmax]=0
+        selection = (k >= kmin) & (k <= kmax)
+        _window_for_calculations[~selection]=0
 
-        power = interpolator(zs, k, grid = False)
+        #calculate power only for the modes that respect kmin, kmax constraints
+        power = np.zeros_like(chis)
+        power[selection] = interpolator(zs[selection], k[selection], grid = False) 
         
         common = ((_window_for_calculations*power)*common_prefactor)[zs >= zmin]   
 
