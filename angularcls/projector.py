@@ -90,5 +90,19 @@ class Results(object):
             result = self.results[(keyB, keyA)]
         return result
 
-    def get_big_data_vector(self) -> np.ndarray:
+    def get_big_data_vector(self, binning_function: Callable = None) -> np.ndarray:
         return list(self.results.keys()), np.hstack(list(self.results.values()))
+    
+    def get_ordered_data_vector(self, names_up: List, names_down: List, binning_function: Callable = None) -> np.ndarray:
+        """
+        names have to be in the calculated fields. Currently does not throw an error if this is not the case.
+        """
+        ups = []
+        downs = []
+
+        for up in names_up:
+            ups += [self.get(up, up)]
+            for down in names_down:
+                downs += [self.get(up, down)]
+
+        return np.hstack([ups, downs])
