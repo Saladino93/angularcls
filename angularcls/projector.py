@@ -96,13 +96,15 @@ class Results(object):
     def get_ordered_data_vector(self, names_up: List, names_down: List, binning_function: Callable = None) -> np.ndarray:
         """
         names have to be in the calculated fields. Currently does not throw an error if this is not the case.
+
+        It gives the vector of the data in the order of the names_up and names_down. names_down has only its cross-correlations with names_up.
         """
         ups = []
         downs = []
 
         for up in names_up:
-            ups += [self.get(up, up)]
+            ups = np.append(ups, self.get(up, up))
             for down in names_down:
-                downs += [self.get(up, down)]
+                downs = np.append(downs, self.get(up, down))
 
         return np.hstack([ups, downs])
