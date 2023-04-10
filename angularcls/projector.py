@@ -4,7 +4,24 @@ from typing import Callable, List, Tuple, Union, Dict
 
 import abc
 
+class Spectra(object):
+    
+        def __init__(self, spectra: List[Tuple[str, Callable]]):
+            self.spectra = spectra
+    
+        def __call__(self, typeA: str, typeB: str = None) -> Callable:
+            if typeB is None:
+                result = self.spectra[typeA]
+            else:
+                result = self.spectra[typeA + typeB]
+            return result
+
+
 class Projector(object):
+
+    """
+    TODO: spectra -> make it a function that takes a pair of fields and returns a spectrum
+    """
 
     def __init__(self, zs: np.ndarray, spectra: List[Tuple[str, Callable]], gaussquadweights: np.ndarray):
         '''
