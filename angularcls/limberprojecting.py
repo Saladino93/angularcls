@@ -1,11 +1,10 @@
-import numpy as np
+import jax.numpy as np
 
 from typing import Callable, List, Tuple, Set, Union
 
 import itertools
 
 from . import cosmoconstants, projector
-
 
 
 class LimberProjector(projector.Projector):
@@ -154,6 +153,9 @@ class LimberProjector(projector.Projector):
         for (indA, indB, type_, spectrum) in interpolator:
             if type_ not in spectra_results.keys():
                 if type(spectrum) is list:
+                    #take cosmo interpolator calculate at selected zsel
+                    #now you have to select for all the ksel
+                    #for each zsel you want to interpolate at ksel
                     result = np.array([spectrum_i(zsel, ksel, grid = False) for spectrum_i in spectrum])
                 else:
                     result = spectrum(zsel, ksel, grid = False)

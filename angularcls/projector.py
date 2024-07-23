@@ -1,3 +1,4 @@
+import jax.numpy as jnp
 import numpy as np
 
 from typing import Callable, List, Tuple, Union, Dict
@@ -23,7 +24,7 @@ class Projector(object):
     TODO: spectra -> make it a function that takes a pair of fields and returns a spectrum
     """
 
-    def __init__(self, zs: np.ndarray, spectra: List[Tuple[str, Callable]], gaussquadweights: np.ndarray):
+    def __init__(self, zs: jnp.ndarray, spectra: List[Tuple[str, Callable]], gaussquadweights: jnp.ndarray):
         '''
         Parameters
         ----------
@@ -66,7 +67,7 @@ class Projector(object):
     def _update_windows_list(self, new_name: str):
         self._window_list += [new_name]
 
-    def update_window(self, window_name: str, window_properties: Tuple[str, Union[Callable, np.ndarray]]):
+    def update_window(self, window_name: str, window_properties: Tuple[str, Union[Callable, jnp.ndarray]]):
         '''
         Examples
         --------
@@ -74,7 +75,7 @@ class Projector(object):
         >> window_properties = ('m', kappa_window_function)
         '''
         _window_prop = window_properties[1]
-        window_values = _window_prop(self.zs) if type(_window_prop) is not np.ndarray else _window_prop
+        window_values = _window_prop(self.zs) if type(_window_prop) is not jnp.ndarray else _window_prop
         window_properties = (window_properties[0], window_values)
         setattr(self, window_name, window_properties)
         if window_name not in self.windows:
@@ -91,14 +92,14 @@ class Projector(object):
 
 
 class Results(object):
-    def __init__(self, ls: np.ndarray, result_dict: Dict):
+    def __init__(self, ls: jnp.ndarray, result_dict: Dict):
         self.results = result_dict
         self.ls = ls
         #fig, ax = plt.subplots(nrows = len(result_dict.keys()))
         #self.fig = fig
         #self.ax = ax
 
-    def get(self, keyA: str, keyB: str = '') -> np.ndarray:
+    def get(self, keyA: str, keyB: str = '') -> jnp.ndarray:
         if keyB == '':
             keyB = keyA
         try:
@@ -107,10 +108,10 @@ class Results(object):
             result = self.results[(keyB, keyA)]
         return result
 
-    def get_big_data_vector(self, binning_function: Callable = None) -> np.ndarray:
-        return list(self.results.keys()), np.hstack(list(self.results.values()))
+    def get_big_data_vector(self, binning_function: Callable = None) -> jnp.ndarray:
+        return list(self.results.keys()), jnp.hstack(list(self.results.values()))
     
-    def get_ordered_data_vector(self, names_up: List, names_down: List, binning_function: Callable = None) -> np.ndarray:
+    def get_ordered_data_vector(self, names_up: List, names_down: List, binning_function: Callable = None) -> jnp.ndarray:
         """
         names have to be in the calculated fields. Currently does not throw an error if this is not the case.
 
@@ -120,8 +121,8 @@ class Results(object):
         downs = []
 
         for up in names_up:
-            ups = np.append(ups, self.get(up, up))
+            ups = jnp.append(ups, self.get(up, up))
             for down in names_down:
-                downs = np.append(downs, self.get(up, down))
+                downs = jnp.append(downs, self.get(up, down))
 
-        return np.hstack([ups, downs])
+        return jnp.hstack([ups, downs])
